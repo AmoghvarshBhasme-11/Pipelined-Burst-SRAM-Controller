@@ -131,3 +131,4 @@ B.E. Electronics and Communication Engineering | RTL Design and Verification
 ### Repository status
 
 Completed RTL and verification milestone. The repository is maintained as a portfolio project and focuses on readable RTL, evidence-driven verification, and documented design decisions.
+"# Pipelined-Burst-SRAM-Controller" 
