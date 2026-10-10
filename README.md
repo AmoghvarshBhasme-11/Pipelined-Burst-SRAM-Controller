@@ -1,134 +1,65 @@
 # Pipelined Burst SRAM Controller
 
-> A synthesizable Verilog SRAM controller with valid/ready handshaking, burst transfers, response buffering, backpressure handling, performance monitoring, and a self-checking verification environment.
+A Verilog RTL project exploring burst-capable SRAM control, request/response flow control, response buffering, self-checking simulation, and basic performance instrumentation.
 
-![Language](https://img.shields.io/badge/Language-Verilog-blue)
-![Simulation](https://img.shields.io/badge/Simulator-Vivado%20XSim-orange)
-![Verification](https://img.shields.io/badge/Verification-Self--Checking-success)
+> **Research status:** Directed-test evidence is partial. The available log does not establish randomized stress completion or a performance improvement over a baseline. See the [preliminary paper](docs/PAPER_DRAFT.md), [claim matrix](docs/CLAIM_MATRIX.md), [experiment plan](docs/EXPERIMENT_PLAN.md), and [results status](docs/RESULTS.md).
 
-## Why this project matters
+## Configuration
 
-Memory controllers are not impressive because they can read and write a RAM once. They become useful when they continue behaving correctly under timing delays, burst traffic, and downstream backpressure. This project implements that control path and verifies it against a golden memory model.
-
-## Key capabilities
-
-- Valid/ready request interface for controlled acceptance of read and write commands
-- `rvalid/rready` response interface for safe response consumption
-- Burst read support
-- Same-data burst write support
-- Two-stage synchronous read path
-- Response FIFO buffering to prevent response loss
-- Backpressure handling when the consumer stalls
-- Performance counter module for transaction monitoring
-- Golden-memory, self-checking testbench
-- Randomized stress tests and automatic data-mismatch detection
-
-## Architecture
-
-```mermaid
-flowchart LR
-    A[CPU / Self-Checking Testbench] -->|req_valid, req_ready, addr, we, wdata| B[SRAM Controller]
-    B -->|sram_req, sram_we, sram_addr, sram_wdata| C[Synchronous SRAM Model]
-    C -->|sram_rdata, sram_rvalid| B
-    B --> D[Response FIFO]
-    D -->|rvalid, rready, rdata| A
-    B --> E[Performance Counters]
-```
-
-## Design specification
-
-| Parameter | Value |
+| Property | Value |
 |---|---:|
 | Data width | 16 bits |
 | Address width | 10 bits |
-| SRAM depth | 1024 locations |
-| Read behavior | Synchronous, two-stage read latency |
-| Request protocol | Valid/ready |
-| Response protocol | `rvalid/rready` |
-| Write mode | Single and same-data burst write |
-| Read mode | Single and burst read |
-| Verification simulator | Vivado XSim |
+| Behavioral SRAM depth | 1,024 words |
+| Request interface | `valid` / `ready` |
+| Response interface | `rvalid` / `rready` |
+| Burst field | 4 bits; zero is treated as one beat |
+| Response storage | Two-entry data array in controller RTL |
+| Simulator reported | Vivado XSim |
 
 ## Repository layout
 
 ```text
-Pipelined-Burst-SRAM-Controller/
-├── rtl/
-│   ├── sram_controller.v        # Main controller RTL
-│   ├── response_fifo.v          # Response buffering
-│   ├── perf_counter.v           # Performance counters
-│   └── sram_model.v             # Synchronous SRAM model
-├── tb/
-│   └── tb_sram_controller.v     # Self-checking testbench
-├── docs/
-│   ├── RESULTS.md               # Verification summary
-│   └── images/                  # Waveforms and TCL-console screenshots
-├── .gitignore
-└── README.md
+rtl/
+  sram_cont.v   # sram_controller
+  sram.v        # sram_model
+  perf.v        # perf_counter
+tb/
+  tb.v          # tb_top and self-checking testbench
+docs/
+  RESULTS.md
+  CLAIM_MATRIX.md
+  EXPERIMENT_PLAN.md
+  PAPER_DRAFT.md
 ```
 
-> Keep your original module names if they differ. Rename the files only when the module declarations and testbench instantiations are updated together.
+## Implemented functionality
 
-## Verification strategy
+- Valid/ready request acceptance and rvalid/rready response interface.
+- Read and write transactions with burst sequencing.
+- Same-data burst writes and synchronous behavioral SRAM model.
+- Golden-memory-based read-response checking.
+- Directed readback, mixed-traffic, burst, and backpressure scenarios.
+- Counters for active cycles, accepted requests, consumed response beats, request-side stalls, and SRAM request pulses.
 
-The testbench maintains an independent golden-memory model and compares every read response returned by the DUT. It exercises the controller with directed and randomized traffic while checking interface behavior and unknown values.
+## Verification status
 
-### Test scenarios
+The available log excerpt shows selected successful readbacks and a backpressure stall/resume event. It does **not** establish randomized stress completion: the visible run only shows the random test starting. Do not claim the complete regression passed until the run reaches the random-test completion marker and final PASS summary.
 
-1. **Multi-write followed by readback** — verifies basic data integrity.
-2. **Back-to-back transactions** — verifies request sequencing without idle cycles.
-3. **Burst reads** — verifies response order, burst termination, and read-data alignment.
-4. **Same-data burst writes** — verifies multiple locations are updated correctly.
-5. **Response backpressure** — holds `rready` low to verify that no response is lost or duplicated.
-6. **Randomized stress test** — mixes reads, writes, bursts, and stalls.
-7. **Protocol and X-value checks** — catches invalid handshakes and unknown read data.
+The response FIFO needs explicit tests for simultaneous response consumption and arrival, particularly when full. See [the experiment plan](docs/EXPERIMENT_PLAN.md).
 
-## Engineering issues debugged
+## Performance counter note
 
-During implementation and verification, the following issues were identified and resolved:
+The existing `stall_cycles` counter measures request-side stalls (`valid && !ready`), not response-side backpressure. The response count measures consumed beats (`rvalid && rready`). These simulation counters are not area, timing, or power measurements.
 
-- X-propagation on read data
-- Incorrect `rvalid` and `rdata` alignment
-- Duplicated read responses
-- Burst termination errors
-- Response loss under backpressure
+## Running in Vivado XSim
 
-These are exactly the kinds of bugs that separate a simple classroom RAM interface from a controller that has been genuinely verified.
-
-## Results
-
-The final self-checking environment completed directed and randomized tests with automatic mismatch detection enabled. Add your evidence below after uploading the images to `docs/images/`.
-
-| Evidence | Add this file |
-|---|---|
-| Burst read waveform | `docs/images/burst_read_waveform.png` |
-| Backpressure waveform | `docs/images/backpressure_waveform.png` |
-| XSim/TCL pass log | `docs/images/xsim_pass_log.png` |
-| Controller architecture | `docs/images/controller_architecture.png` |
-
-## Running the project in Vivado XSim
-
-1. Create or open a Vivado RTL project.
-2. Add the design files from `rtl/` in dependency order.
-3. Add `tb/tb_sram_controller.v` as a simulation source.
-4. Set the testbench as the simulation top module.
-5. Run behavioral simulation and inspect the pass messages and waveforms.
-
-## What to inspect first
-
-- The testbench's golden-memory comparison logic
-- FIFO behavior while `rready` is low
-- Alignment of `rvalid` with `rdata`
-- Burst address progression and final-beat handling
+1. Add `rtl/sram.v`, `rtl/sram_cont.v`, and `rtl/perf.v` as design sources.
+2. Add `tb/tb.v` as a simulation source and set `tb_top` as the simulation top.
+3. Run until the testbench reaches its own completion marker; do not stop at a short fixed simulation duration.
+4. Save the complete console log and relevant waveforms as evidence.
 
 ## Author
 
 **Amoghvarsh V. Bhasme**  
-B.E. Electronics and Communication Engineering | RTL Design and Verification
-
----
-
-### Repository status
-
-Completed RTL and verification milestone. The repository is maintained as a portfolio project and focuses on readable RTL, evidence-driven verification, and documented design decisions.
-"# Pipelined-Burst-SRAM-Controller" 
+B.E. Electronics and Communication Engineering | RTL Design
