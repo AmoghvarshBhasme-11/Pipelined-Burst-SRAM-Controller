@@ -1,39 +1,50 @@
-# Verification Results
+# Verification Results and Evidence Status
 
-Replace the bracketed placeholders with your actual result details before or after uploading screenshots.
+## Simulation configuration
+- RTL language: Verilog
+- Simulator reported in the project: Vivado XSim
+- Behavioral memory: 1,024 words × 16 bits
+- Testbench top: `tb_top`
 
-## Simulation environment
+## Evidence status
 
-- **Tool:** Vivado 2025.2 / XSim
-- **RTL language:** Verilog
-- **DUT:** Pipelined Burst SRAM Controller
-- **Memory configuration:** 1K x 16-bit synchronous SRAM model
-
-## Test summary
-
-| Test case | Purpose | Result |
+| Scenario | Status based on available evidence | Notes |
 |---|---|---|
-| Multi-write and readback | Verify stored data matches expected values | PASS |
-| Back-to-back requests | Verify no unnecessary idle behavior | PASS |
-| Burst read | Verify response ordering and termination | PASS |
-| Same-data burst write | Verify data replication across burst addresses | PASS |
-| Backpressure | Verify FIFO prevents response loss | PASS |
-| Randomized stress | Exercise mixed traffic and stalls | PASS |
-| Unknown-data checks | Detect X propagation at response interface | PASS |
+| Directed writes/readback | Partial pass evidence | Several PASS READ lines are visible |
+| Mixed transactions and bursts | Partial evidence | Scenarios exist; full edge-case coverage is not established |
+| Backpressure | Stall/resume visible | No-loss/no-duplicate behavior for all concurrent events is not established |
+| Randomized stress | Not established | Available log stops shortly after random stress starts |
+| Final performance report | Not established | An intermediate counter snapshot is not a final report |
+| Baseline comparison | Not performed | No speed or throughput improvement can be claimed |
+| Area, timing, power | Not measured | Requires appropriate synthesis/implementation or power methodology |
 
-## Evidence
+## Preliminary counter snapshot
 
-Add the following images under `docs/images/` and reference them here:
+A previously observed snapshot showed:
 
-```md
-![Burst read waveform](images/burst_read_waveform.png)
-![Backpressure waveform](images/backpressure_waveform.png)
-![XSim pass log](images/xsim_pass_log.png)
-```
+| Counter | Value |
+|---|---:|
+| Total cycles | 96 |
+| Read requests | 6 |
+| Write requests | 8 |
+| Consumed response beats | 13 |
+| Request-side stall cycles | 11 |
+| SRAM request pulses | 25 |
 
-## Debug log highlights
+Derived snapshot ratios:
+- Request-stall ratio: 11/96 = 11.46%.
+- Consumed-response rate: 13/96 = 0.135 beats/cycle.
+- SRAM-request rate: 25/96 = 0.260 request pulses/cycle.
 
-- Resolved X propagation by ensuring valid data was sampled only when the SRAM response was valid.
-- Corrected the timing relationship between `rvalid` and `rdata`.
-- Prevented duplicated and dropped responses with explicit response FIFO control.
-- Corrected burst end conditions and address progression.
+These are **preliminary snapshot values, not final benchmark results**. Reproduce them at a defined end-of-test measurement point before using them in the paper.
+
+## Required final evidence
+
+1. Complete XSim log with random-test completion, zero errors, and an explicit final PASS marker.
+2. Waveform showing `rvalid` and `rdata` stability during `rvalid && !rready`.
+3. Directed tests for simultaneous response arrival/consumption, including a full FIFO.
+4. End-of-test metrics and deterministic random seed.
+5. Baseline results from identical workloads.
+6. Raw logs and waveforms committed to the repository.
+
+See [Claim Matrix](CLAIM_MATRIX.md) and [Experiment Plan](EXPERIMENT_PLAN.md).
